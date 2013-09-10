@@ -1,24 +1,22 @@
 {
-  "name": "grunt-jstestdriver",
-  "description": "Grunt task for uniting testing using JS Test Driver.",
-  "version": "2.2.0",
-  "homepage": "https://github.com/rickyclegg/grunt-jstestdriver",
+  "name": "grunt-jstestdriver-phantomjs",
+  "description": "Grunt task for unit testing with jsTestDriver and PhantomJS.",
+  "version": "0.0.1",
+  "homepage": "https://github.com/tolu/grunt-jstestdriver-phantomjs",
   "author": {
-    "name": "Ricky Clegg",
-    "email": "me@rickyclegg.com",
-    "url": "http://www.rickyclegg.com"
+    "name": "Tobias Lundin & Anders Karlsson"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/rickyclegg/grunt-jstestdriver.git"
+    "url": "git://github.com/tolu/grunt-jstestdriver-phantomjs.git"
   },
   "bugs": {
-    "url": "https://github.com/rickyclegg/grunt-jstestdriver/issues"
+    "url": "https://github.com/tolu/grunt-jstestdriver-phantomjs/issues"
   },
   "licenses": [
     {
       "type": "MIT",
-      "url": "https://github.com/rickyclegg/grunt-jstestdriver/blob/master/LICENSE-MIT"
+      "url": "https://github.com/tolu/grunt-jstestdriver-phantomjs/blob/master/LICENSE-MIT"
     }
   ],
   "main": "Gruntfile.js",
@@ -41,6 +39,7 @@
     "jstestdriver",
     "tdd",
     "unit testing",
-    "testing"
+    "testing",
+    "phantomjs"
   ]
 }
