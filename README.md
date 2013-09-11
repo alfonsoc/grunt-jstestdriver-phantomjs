@@ -58,10 +58,10 @@ To be updated...
 
 
 ## Release History
-* 2013/10/09 - v0.0.1 - Added PhantomJS, downgraded jsTestDriver to v.1.3.3.d for stability
+* 2013/10/09 - v0.0.1 - Added PhantomJS, downgraded jsTestDriver to v.1.3.3.d for stability. Set up task so that it spins up server, hooks up phantom AND runs the tests.
 * 2013/10/09 - v0.0.0 - Forked from Ricky Clegg
 
 
 ## License
-Copyright (c) 2013 Ricky Clegg
+Copyright (c) 2013 Tobias Lundin
 Licensed under the MIT license.

@@ -4,8 +4,12 @@
   "version": "0.0.1",
   "homepage": "https://github.com/tolu/grunt-jstestdriver-phantomjs",
   "author": {
-    "name": "Tobias Lundin & Anders Karlsson"
+    "name": "Tobias Lundin",
+    "email": "tobias.lundin@gmail.com"
   },
+  "contributors": [
+    "Anders Karlsson <andersk2@gmail.com>"
+  ],
   "repository": {
     "type": "git",
     "url": "git://github.com/tolu/grunt-jstestdriver-phantomjs.git"
@@ -26,10 +30,12 @@
   "scripts": {
     "test": "grunt test"
   },
+  "dependencies": {
+    "grunt-lib-phantomjs": "~0.4.0"
+  },
   "devDependencies": {
     "grunt-contrib-jshint": "~0.1.1",
-    "grunt": "~0.4.1",
-    "grunt-lib-phantomjs": "~0.4.0"
+    "grunt": "~0.4.1"
   },
   "peerDependencies": {
     "grunt": "~0.4.0"
@@ -37,9 +43,9 @@
   "keywords": [
     "gruntplugin",
     "jstestdriver",
+    "phantomjs",
     "tdd",
     "unit testing",
-    "testing",
-    "phantomjs"
+    "testing"
   ]
 }
