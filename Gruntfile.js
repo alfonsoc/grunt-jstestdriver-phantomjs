@@ -1,8 +1,8 @@
 /*
- * grunt-jstestdriver
- * https://github.com/rickyclegg/grunt-jstestdriver
+ * grunt-jstestdriver-phantomjs
+ * https://github.com/tolu/grunt-jstestdriver-phantomjs
  *
- * Copyright (c) 2013 Ricky Clegg
+ * Copyright (c) 2013 Tobias Lundin
  * Licensed under the MIT license.
  */
 'use strict';
@@ -18,9 +18,8 @@ module.exports = function (grunt) {
                 jshintrc: '.jshintrc'
             }
         },
-        jstestdriver: {
+        jstdPhantom: {
             options: {
-                canFail: false
             },
             files: ["task-test/jsTestDriver_jstd.conf"]
         }
@@ -30,5 +29,5 @@ module.exports = function (grunt) {
 
     grunt.loadNpmTasks('grunt-contrib-jshint');
 
-    grunt.registerTask('default', ['jstestdriver', 'jshint']);
+    grunt.registerTask('default', ['jstdPhantom', 'jshint']);
 };
