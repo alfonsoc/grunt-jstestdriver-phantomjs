@@ -12,6 +12,10 @@ module.exports = function (grunt) {
 
     var taskName = "jstdPhantom";
 
+    // Nodejs libs.
+    var path = require('path');
+    var Q = require('q');
+
     // npm lib
     var phantomjs = require('grunt-lib-phantomjs').init(grunt);
 
@@ -21,13 +25,26 @@ module.exports = function (grunt) {
                 tests: 'all'
             }),
             config = grunt.config.get(taskName),
-            done = this.async(),
+            async = this.async(),
             numberOfConfigs,
             numberOfPassedTests = 0,
             numberOfFailedTests = 0,
-            failedTests = [];
+            failedTests = [],
+            childProcesses = [],
+            jarFile = path.join(__dirname, '..', 'lib', 'jstestdriver.jar');
 
         grunt.verbose.writeflags(options, 'Options');
+
+        function done() {
+            async.apply(this, arguments);
+            killChildProcesses();
+        }
+
+        function killChildProcesses() {
+            childProcesses.forEach(function (childProcess) {
+                childProcess.kill();
+            });
+        }
 
         function taskComplete() {
 
@@ -43,53 +60,10 @@ module.exports = function (grunt) {
         }
 
         function runJSTestDriver(configFileLocation, options) {
-            var cp;
 
-            function setNumberOfPassesAndFails(result) {
-                var resultAsStr = result.toString(),
-                    passedReg = /\d+(?=;\sFails)/,
-                    failsReg = /\d+(?=;\sErrors)/;
-
-                if (resultAsStr && resultAsStr.indexOf('RuntimeException') === -1) {
-                    numberOfPassedTests += parseInt(passedReg.exec(resultAsStr)[0], 10);
-                    numberOfFailedTests += parseInt(failsReg.exec(resultAsStr)[0], 10);
-                }
-            }
-
-            function hasFailedTests(result) {
-                var prop, resultStr = "";
-
-                for (prop in result) {
-                    if (result.hasOwnProperty(prop)) {
-                        resultStr += result[prop];
-                    }
-                }
-
-                return resultStr.indexOf("Error:") > -1;
-            }
-
-            function processCompleteTests() {
-                grunt.log.verbose.writeln('>> Finished running file: ' + configFileLocation);
-                grunt.log.verbose.writeln('');
-
-                numberOfConfigs -= 1;
-                if (numberOfConfigs === 0) {
-                    taskComplete();
-                }
-            }
-
-            function onTestRunComplete(error, result) {
-
-                setNumberOfPassesAndFails(result.stdout);
-
-                if (error || hasFailedTests(result)) {
-                    failedTests.push(result);
-                    grunt.verbose.writeln('   ONE or MORE tests have failed in:');
-                } else {
-                    grunt.verbose.writeln(result);
-                }
-
-                processCompleteTests();
+            function itDidntWork (msg) {
+                grunt.log.writeln(msg);
+                done(false);
             }
 
             function getOptionsArray(options) {
@@ -112,72 +86,136 @@ module.exports = function (grunt) {
                 return arr;
             }
 
-            var jarFile = __dirname + '\\..\\lib\\jstestdriver.jar';
-            var jstdCmd = {
-                cmd: 'java',
-                args: ["-jar",
-                       jarFile,
-                       "--config",
-                       configFileLocation,
-                       '--reset',
-                       '--server',
-                       'http://localhost:4224'].concat(getOptionsArray(options))
-            };
+            function startServer () {
+                var deferred = Q.defer();
 
-            grunt.log.writeln('Starting jstd server...\n');
-            var server = grunt.util.spawn({
-                cmd: 'java',
-                args: [
-                    "-jar",
-                    jarFile,
-                    "--port",
-                    "4224"
-                ]
-            }, function(error, result, code){
-                grunt.verbose.writeln(error);
-            });
+                grunt.log.writeln('Starting jstd server...');
 
-            function itDidntWork (msg) {
-                grunt.log.writeln(msg);
-                done(false);
+                var server = grunt.util.spawn({
+                    cmd: 'java',
+                    args: [
+                        "-jar",
+                        jarFile,
+                        "--port",
+                        "4224"
+                    ]
+                }, function(error, result, code){
+                    grunt.verbose.writeln(error);
+                });
+
+                childProcesses.push(server);
+
+                // TODO: find a better way of knowing when the server is started. For now, just wait ...
+                setTimeout(function(){
+                    if (!server.killed && !server.exitCode) {
+
+                        deferred.resolve();
+
+                    } else {
+                        itDidntWork('failed to start server');
+                    }
+                }, 5000);
+
+                return deferred.promise;
             }
 
-            function initPhantom (callback) {
+            function startBrowser () {
+                var deferred = Q.defer();
+
                 grunt.log.writeln("Starting PhantomJS...");
 
-                var gotHeartbeat = false;
                 phantomjs.on('onResourceReceived', function(request){
 
                     if(/\/capture$/.test(request.url) && request.status == 404){
                         itDidntWork('server did not respond');
                     }
-                    if(/\/heartbeat$/.test(request.url) && !gotHeartbeat){
-                        gotHeartbeat = true;
-                        callback();
+                    if(/\/heartbeat$/.test(request.url)){
+                        deferred.resolve();
                     }
 
                 });
 
-                phantomjs.spawn("http://localhost:4224/capture", { options: {} });
+                var phantom = phantomjs.spawn("http://localhost:4224/capture", {
+                    options: {
+                        done: function () {}
+                    }
+                });
+                childProcesses.push(phantom);
+
+                return deferred.promise;
             }
 
-            function startTestRunner () {
+            function runTests () {
+                var deferred = Q.defer();
+
                 grunt.log.writeln("Running tests...\n");
-                cp = grunt.util.spawn(jstdCmd, onTestRunComplete);
-                cp.stdout.pipe(process.stdout);
-                cp.stderr.pipe(process.stderr);
+
+                var jstdCmd = {
+                    cmd: 'java',
+                    args: ["-jar",
+                           jarFile,
+                           "--config",
+                           configFileLocation,
+                           '--reset',
+                           '--server',
+                           'http://localhost:4224'].concat(getOptionsArray(options))
+                };
+
+                var runner = grunt.util.spawn(jstdCmd, function (error, result) {
+                    if (error) {
+                        done(false);
+                    }
+                    else {
+                        deferred.resolve(result.stdout);
+                    }
+                });
+
+                runner.stdout.pipe(process.stdout);
+                runner.stderr.pipe(process.stderr);
+
+                childProcesses.push(runner);
+
+                return deferred.promise;
             }
 
-            setTimeout(function(){
+            function handleTestResults (result) {
+                setNumberOfPassesAndFails(result);
 
-                if (!server.killed && !server.exitCode) {
-
-                    initPhantom(startTestRunner);
-
+                if (hasFailedTests(result)) {
+                    failedTests.push(result);
+                    grunt.verbose.writeln('   ONE or MORE tests have failed in:');
                 } else {
-                    itDidntWork('failed to start server');
+                    grunt.verbose.writeln(result);
                 }
-            }, 5000);
+
+                processCompleteTests();
+            }
+
+            function setNumberOfPassesAndFails(result) {
+                var passedReg = /\d+(?=;\sFails)/,
+                    failsReg = /\d+(?=;\sErrors)/;
+
+                if (result && result.indexOf('RuntimeException') === -1) {
+                    numberOfPassedTests += parseInt(passedReg.exec(result)[0], 10);
+                    numberOfFailedTests += parseInt(failsReg.exec(result)[0], 10);
+                }
+            }
+
+            function hasFailedTests(result) {
+                return result.indexOf("Error:") > -1;
+            }
+
+            function processCompleteTests() {
+                grunt.log.verbose.writeln('>> Finished running file: ' + configFileLocation);
+                grunt.log.verbose.writeln('');
+
+                numberOfConfigs -= 1;
+                if (numberOfConfigs === 0) {
+                    taskComplete();
+                }
+            }
+
+            startServer().then(startBrowser).then(runTests).then(handleTestResults);
         }
 
         if (typeof config.files === 'string') {
