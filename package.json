@@ -1,7 +1,7 @@
 {
   "name": "grunt-jstestdriver-phantomjs",
   "description": "Grunt task for unit testing with jsTestDriver and PhantomJS.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "homepage": "https://github.com/tolu/grunt-jstestdriver-phantomjs",
   "author": {
     "name": "Tobias Lundin",

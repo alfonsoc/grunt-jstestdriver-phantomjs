@@ -17,7 +17,7 @@ module.exports = function (grunt) {
     var Q = require('q');
 
     // npm lib
-    var phantomjs = require('grunt-lib-phantomjs').init(grunt);
+    var phantomjs = require('grunt-lib-phantomjs').init(silentGrunt(grunt));
 
     grunt.registerTask(taskName, 'Grunt task for unit testing using JS Test Driver.', function () {
 
@@ -36,14 +36,20 @@ module.exports = function (grunt) {
         grunt.verbose.writeflags(options, 'Options');
 
         function done() {
-            async.apply(this, arguments);
+            // Don't let killed child processes do any logging
+            grunt.log.muted = true;
             killChildProcesses();
+            setTimeout(function() {
+                grunt.log.muted = false;
+                async.apply(this, arguments);
+            }, 1000);
         }
 
         function killChildProcesses() {
             childProcesses.forEach(function (childProcess) {
                 childProcess.kill();
             });
+
         }
 
         function taskComplete() {
@@ -136,9 +142,8 @@ module.exports = function (grunt) {
                 });
 
                 var phantom = phantomjs.spawn("http://localhost:4224/capture", {
-                    options: {
-                        done: function () {}
-                    }
+                    options: {},
+                    done: function () {}
                 });
                 childProcesses.push(phantom);
 
@@ -233,4 +238,14 @@ module.exports = function (grunt) {
         }.bind(this));
     });
 
+    function silentGrunt(grunt) {
+        var clonedGrunt = {};
+        for (var key in grunt) {
+            clonedGrunt[key] = grunt[key];
+            if ("warn" === key) {
+                clonedGrunt[key] = function() {};
+            }
+        }
+        return clonedGrunt;
+    }
 };
