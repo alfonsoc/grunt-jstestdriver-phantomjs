@@ -50,7 +50,6 @@ We spawn a process of JSTD to create a server and wait for a little bit to make 
 
 
 ## Trouble shooting
-
 To be updated...
 
 ## Contributing
@@ -58,7 +57,9 @@ To be updated...
 
 
 ## Release History
-* 2013/10/09 - v0.0.1 - Added PhantomJS, downgraded jsTestDriver to v.1.3.3.d for stability. Set up task so that it spins up server, hooks up phantom AND runs the tests.
+* 2013/11/09 - v.0.0.3 - Introduced promises, fix for paths and kills all spawned processes when task is done.
+* 2013/11/09 - v.0.0.2 - Changed task name to "jstdPhantom", moved grunt-lib-phantom to dependencies
+* 2013/10/09 - v0.0.1 - Added PhantomJS, downgraded jsTestDriver to v.1.3.3.d for stability. Set up task so that it spins up server, hooks up phantom AND runs the tests before exiting
 * 2013/10/09 - v0.0.0 - Forked from Ricky Clegg
 
 
