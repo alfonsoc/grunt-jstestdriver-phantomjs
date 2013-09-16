@@ -35,12 +35,15 @@ module.exports = function (grunt) {
 
         grunt.verbose.writeflags(options, 'Options');
 
-        function done() {
+        function done(success) {
             // Don't let killed child processes do any logging
             grunt.log.muted = true;
             killChildProcesses();
             setTimeout(function() {
                 grunt.log.muted = false;
+                if (success === false) {
+                    grunt.warn(taskName +" task failed!");
+                }
                 async.apply(this, arguments);
             }, 1000);
         }
@@ -53,14 +56,14 @@ module.exports = function (grunt) {
         }
 
         function taskComplete() {
-
             grunt.log.writeln('');
-            grunt.log.ok('Total Passed: ' + numberOfPassedTests + ', Fails: ' + numberOfFailedTests);
+            var msg = 'Total Passed: ' + numberOfPassedTests + ', Fails: ' + numberOfFailedTests;
 
-            if (failedTests.length > 0) {
-                //grunt.fail.fatal(failedTests.join('\n\n'));
+            if (numberOfFailedTests > 0) {
+                grunt.log.error(msg);
                 done(false);
             } else {
+                grunt.log.ok(msg);
                 done();
             }
         }
@@ -167,11 +170,11 @@ module.exports = function (grunt) {
                 };
 
                 var runner = grunt.util.spawn(jstdCmd, function (error, result) {
-                    if (error) {
-                        done(false);
+                    if (result && typeof result.stdout === "string") {
+                        deferred.resolve(result.stdout);
                     }
                     else {
-                        deferred.resolve(result.stdout);
+                        done(false);
                     }
                 });
 
