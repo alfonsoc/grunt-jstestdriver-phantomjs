@@ -8,13 +8,14 @@
 'use strict';
 module.exports = function (grunt) {
 
-    var INVALID_FLAGS = ['browser', 'config', 'dryRunFor', 'port', 'server', 'serverHandlerPrefix', 'canFail'];
+    var JSTDFLAGS_FLAGS = ['tests', 'verbose', 'captureConsole', 'preloadFiles', 'plugins', 'runnerMode'];
 
     var taskName = "jstdPhantom";
 
     // Nodejs libs.
     var path = require('path');
     var Q = require('q');
+    var http = require("http");
 
     // npm lib
     var phantomjs = require('grunt-lib-phantomjs').init(silentGrunt(grunt));
@@ -22,14 +23,16 @@ module.exports = function (grunt) {
     grunt.registerTask(taskName, 'Grunt task for unit testing using JS Test Driver.', function () {
 
         var options = this.options({
-                tests: 'all'
+                tests: 'all',
+                timeout: 60000,
+                retries: 1
             }),
             config = grunt.config.get(taskName),
             async = this.async(),
             numberOfConfigs,
             numberOfPassedTests = 0,
             numberOfFailedTests = 0,
-            failedTests = [],
+            timeouts = [],
             childProcesses = [],
             jarFile = path.join(__dirname, '..', 'lib', 'jstestdriver.jar');
 
@@ -38,22 +41,48 @@ module.exports = function (grunt) {
         function done(success) {
             // Don't let killed child processes do any logging
             grunt.log.muted = true;
-            killChildProcesses();
-            setTimeout(function() {
+            killChildProcesses().then(function () {
                 grunt.log.muted = false;
                 if (success === false) {
                     grunt.warn(taskName +" task failed!");
                 }
                 async.apply(this, arguments);
-            }, 1000);
+            });
         }
 
         function killChildProcesses() {
+            var deferred = Q.defer();
+
+            function poll () {
+                var killed = true;
+                
+                childProcesses.forEach(function (cp) {
+                    killed = killed && (cp.killed || cp.exitCode !== null);
+                });
+
+                setTimeout(killed ? finish : poll, 100);
+            }
+            function finish () {
+                setTimeout(deferred.resolve, 1000);
+            }
+
+            // clear all timeouts
+            timeouts.map(clearTimeout);
+
+            // kill all child processes
             childProcesses.forEach(function (childProcess) {
-                childProcess.kill();
+                childProcess.kill('SIGKILL');
             });
 
+            // wait for child processes to finish
+            poll();
+
+            // wait no more than 10s
+            Q.delay(10000).then(deferred.resolve);
+
+            return deferred.promise;
         }
+
 
         function taskComplete() {
             grunt.log.writeln('');
@@ -83,12 +112,9 @@ module.exports = function (grunt) {
                 for (i = 0; i < l; i += 1) {
                     name = names[i];
 
-                    if (INVALID_FLAGS.indexOf(name) === -1) {
+                    if (JSTDFLAGS_FLAGS.indexOf(name) !== -1) {
                         arr.push("--" + name);
                         arr.push(options[name]);
-                    } else {
-                        grunt.verbose.writeln('WARNING - ' +
-                            name + ' is not a valid config for use with the grunt-jstestdriver!');
                     }
                 }
 
@@ -98,7 +124,10 @@ module.exports = function (grunt) {
             function startServer () {
                 var deferred = Q.defer();
 
-                grunt.log.writeln('Starting jstd server...');
+                grunt.log.write('Starting jstd server.');
+                deferred.promise.then(function() {
+                    grunt.log.writeln("");
+                });
 
                 var server = grunt.util.spawn({
                     cmd: 'java',
@@ -114,16 +143,32 @@ module.exports = function (grunt) {
 
                 childProcesses.push(server);
 
-                // TODO: find a better way of knowing when the server is started. For now, just wait ...
-                setTimeout(function(){
-                    if (!server.killed && !server.exitCode) {
+                function poll () {
+                    grunt.log.write(".")
 
-                        deferred.resolve();
+                    var httpOptions = {
+                      host: 'localhost',
+                      port: 4224,
+                      path: '/',
+                      method: 'GET'
+                    };
 
-                    } else {
-                        itDidntWork('failed to start server');
-                    }
-                }, 5000);
+                    var req = http.request(httpOptions, function(res) {
+                        if (200 === res.statusCode) {
+                            timeouts.push(setTimeout(deferred.resolve, 1000));
+                        } else {
+                            timeouts.push(setTimeout(poll, 100));
+                        }
+                    });
+
+                    req.on('error', function(e) {
+                        timeouts.push(setTimeout(poll, 1000));
+                    });
+
+                    // do request
+                    req.end();
+                }
+                poll();
 
                 return deferred.promise;
             }
@@ -190,10 +235,7 @@ module.exports = function (grunt) {
                 setNumberOfPassesAndFails(result);
 
                 if (hasFailedTests(result)) {
-                    failedTests.push(result);
                     grunt.verbose.writeln('   ONE or MORE tests have failed in:');
-                } else {
-                    grunt.verbose.writeln(result);
                 }
 
                 processCompleteTests();
@@ -222,6 +264,21 @@ module.exports = function (grunt) {
                     taskComplete();
                 }
             }
+
+            function onTimeout () {
+                grunt.verbose.writeln("A Timeout has been triggered. Retries left: " + (options.retries-1));
+                if (0 === options.retries--) {
+                    grunt.log.error("Something took too long");
+                    done(false);
+                }
+                else {
+                    killChildProcesses().then(function() {
+                        runJSTestDriver(configFileLocation, options)
+                    });
+                }
+            }
+
+            Q.delay(options.timeout).then(onTimeout);
 
             startServer().then(startBrowser).then(runTests).then(handleTestResults);
         }
