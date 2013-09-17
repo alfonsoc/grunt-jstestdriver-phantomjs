@@ -8,7 +8,7 @@
 'use strict';
 module.exports = function (grunt) {
 
-    var JSTDFLAGS_FLAGS = ['tests', 'verbose', 'captureConsole', 'preloadFiles', 'plugins', 'runnerMode'];
+    var JSTDFLAGS_FLAGS = ['tests', 'verbose', 'captureConsole', 'preloadFiles', 'plugins', 'runnerMode', 'testOutput'];
 
     var taskName = "jstdPhantom";
 
@@ -44,7 +44,7 @@ module.exports = function (grunt) {
             killChildProcesses().then(function () {
                 grunt.log.muted = false;
                 if (success === false) {
-                    grunt.warn(taskName +" task failed!");
+                    grunt.fail.warn(taskName +" task failed!");
                 }
                 async.apply(this, arguments);
             });
