@@ -25,7 +25,8 @@ module.exports = function (grunt) {
         var options = this.options({
                 tests: 'all',
                 timeout: 60000,
-                retries: 1
+                retries: 1,
+                port: 1025+Math.round(Math.pow(2, 12)*Math.random()) // [1025-5121]
             }),
             config = grunt.config.get(taskName),
             async = this.async(),
@@ -40,9 +41,17 @@ module.exports = function (grunt) {
 
         function done(success) {
             // Don't let killed child processes do any logging
-            grunt.log.muted = true;
+            grunt.util.hooker.hook(process.stdout, 'write', {
+                pre: function(out) {
+                    if (/(Running PhantomJS...|ERROR|>>.*0.*\[)/.test(out)) {
+                        return grunt.util.hooker.preempt();
+                    }
+                }
+            });
             killChildProcesses().then(function () {
-                grunt.log.muted = false;
+                setTimeout(function() {
+                    grunt.util.hooker.unhook(process.stdout, 'write');
+                }, 3000);
                 if (success === false) {
                     grunt.fail.warn(taskName +" task failed!");
                 }
@@ -60,10 +69,7 @@ module.exports = function (grunt) {
                     killed = killed && (cp.killed || cp.exitCode !== null);
                 });
 
-                setTimeout(killed ? finish : poll, 100);
-            }
-            function finish () {
-                setTimeout(deferred.resolve, 1000);
+                setTimeout(killed ? deferred.resolve : poll, 100);
             }
 
             // clear all timeouts
@@ -135,7 +141,7 @@ module.exports = function (grunt) {
                         "-jar",
                         jarFile,
                         "--port",
-                        "4224"
+                        options.port
                     ]
                 }, function(error, result, code){
                     grunt.verbose.writeln(error);
@@ -148,7 +154,7 @@ module.exports = function (grunt) {
 
                     var httpOptions = {
                       host: 'localhost',
-                      port: 4224,
+                      port: options.port,
                       path: '/',
                       method: 'GET'
                     };
@@ -189,7 +195,7 @@ module.exports = function (grunt) {
 
                 });
 
-                var phantom = phantomjs.spawn("http://localhost:4224/capture", {
+                var phantom = phantomjs.spawn("http://localhost:" + options.port + "/capture", {
                     options: {},
                     done: function () {}
                 });
@@ -211,7 +217,7 @@ module.exports = function (grunt) {
                            configFileLocation,
                            '--reset',
                            '--server',
-                           'http://localhost:4224'].concat(getOptionsArray(options))
+                           'http://localhost:' + options.port].concat(getOptionsArray(options))
                 };
 
                 var runner = grunt.util.spawn(jstdCmd, function (error, result) {
