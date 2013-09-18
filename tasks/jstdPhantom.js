@@ -12,6 +12,8 @@ module.exports = function (grunt) {
 
     var taskName = "jstdPhantom";
 
+    var _ = grunt.util._;
+
     // Nodejs libs.
     var path = require('path');
     var Q = require('q');
@@ -25,8 +27,8 @@ module.exports = function (grunt) {
         var options = this.options({
                 tests: 'all',
                 timeout: 60000,
-                retries: 1,
-                port: 1025+Math.round(Math.pow(2, 12)*Math.random()) // [1025-5121]
+                retries: 3,
+                port: _.random(1025, 5000)
             }),
             config = grunt.config.get(taskName),
             async = this.async(),
@@ -40,18 +42,7 @@ module.exports = function (grunt) {
         grunt.verbose.writeflags(options, 'Options');
 
         function done(success) {
-            // Don't let killed child processes do any logging
-            grunt.util.hooker.hook(process.stdout, 'write', {
-                pre: function(out) {
-                    if (/(Running PhantomJS...|ERROR|>>.*0.*\[)/.test(out)) {
-                        return grunt.util.hooker.preempt();
-                    }
-                }
-            });
             killChildProcesses().then(function () {
-                setTimeout(function() {
-                    grunt.util.hooker.unhook(process.stdout, 'write');
-                }, 3000);
                 if (success === false) {
                     grunt.fail.warn(taskName +" task failed!");
                 }
@@ -62,23 +53,33 @@ module.exports = function (grunt) {
         function killChildProcesses() {
             var deferred = Q.defer();
 
+            // Don't let killed child processes do any logging
+            grunt.util.hooker.hook(process.stdout, 'write', {
+                pre: function(out) {
+                    if (/(Running PhantomJS...|ERROR|>>.*0.*\[)/.test(out)) {
+                        return grunt.util.hooker.preempt();
+                    }
+                }
+            });
+            deferred.promise.then(function () {
+                setTimeout(function() {
+                    grunt.util.hooker.unhook(process.stdout, 'write');
+                }, 3000);
+            });
+
             function poll () {
-                var killed = true;
-                
-                childProcesses.forEach(function (cp) {
-                    killed = killed && (cp.killed || cp.exitCode !== null);
+                var success = _.every(childProcesses, function (cp) {
+                    return cp.killed || cp.exitCode !== null;
                 });
 
-                setTimeout(killed ? deferred.resolve : poll, 100);
+                setTimeout(success ? deferred.resolve : poll, 100);
             }
 
             // clear all timeouts
             timeouts.map(clearTimeout);
 
             // kill all child processes
-            childProcesses.forEach(function (childProcess) {
-                childProcess.kill('SIGKILL');
-            });
+            _.invoke(childProcesses, 'kill', 'SIGKILL');
 
             // wait for child processes to finish
             poll();
@@ -88,7 +89,6 @@ module.exports = function (grunt) {
 
             return deferred.promise;
         }
-
 
         function taskComplete() {
             grunt.log.writeln('');
@@ -129,7 +129,7 @@ module.exports = function (grunt) {
 
             function startServer () {
                 var deferred = Q.defer();
-
+                
                 grunt.log.write('Starting jstd server.');
                 deferred.promise.then(function() {
                     grunt.log.writeln("");
@@ -305,13 +305,8 @@ module.exports = function (grunt) {
     });
 
     function silentGrunt(grunt) {
-        var clonedGrunt = {};
-        for (var key in grunt) {
-            clonedGrunt[key] = grunt[key];
-            if ("warn" === key) {
-                clonedGrunt[key] = function() {};
-            }
-        }
+        var clonedGrunt = _.clone(grunt);
+        clonedGrunt.warn = function() {};
         return clonedGrunt;
     }
 };
