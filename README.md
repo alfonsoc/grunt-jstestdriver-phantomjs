@@ -67,5 +67,4 @@ To be updated...
 
 
 ## License
-Copyright (c) 2013 Tobias Lundin
-Licensed under the MIT license.
+MIT
