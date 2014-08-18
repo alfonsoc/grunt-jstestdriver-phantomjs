@@ -13,6 +13,12 @@ module.exports = function (grunt) {
     var taskName = "jstdPhantom";
 
     var _ = grunt.util._;
+    
+    function silentGrunt(grunt) {
+        var clonedGrunt = _.clone(grunt);
+        clonedGrunt.warn = function () { };
+        return clonedGrunt;
+    }
 
     // Nodejs libs.
     var path = require('path');
@@ -21,15 +27,17 @@ module.exports = function (grunt) {
 
     // npm lib
     var phantomjs = require('grunt-lib-phantomjs').init(silentGrunt(grunt));
-
+    
     grunt.registerTask(taskName, 'Grunt task for unit testing using JS Test Driver.', function () {
 
         var options = this.options({
                 tests: 'all',
                 timeout: 60000,
                 retries: 3,
-                port: _.random(1025, 5000)
+                port: _.random(1025, 5000),
+                useLatest: false
             }),
+            useLatest = options.useLatest,
             config = grunt.config.get(taskName),
             async = this.async(),
             numberOfConfigs,
@@ -37,8 +45,10 @@ module.exports = function (grunt) {
             numberOfFailedTests = 0,
             timeouts = [],
             childProcesses = [],
-            jarFile = path.join(__dirname, '..', 'lib', 'jstestdriver.jar');
-
+            jarFile = path.join(__dirname, '..', 'lib', useLatest ? 'jstestdriver-1.3.5.jar': 'jstestdriver.jar');
+            // had an issue with 1.3.5 not being as stable in a certain setting and thats why we default to 1.3.3.d
+        
+        delete options.useLatest;
         grunt.verbose.writeflags(options, 'Options');
 
         function done(success) {
@@ -150,7 +160,7 @@ module.exports = function (grunt) {
                 childProcesses.push(server);
 
                 function poll () {
-                    grunt.log.write(".")
+                    grunt.log.write(".");
 
                     var httpOptions = {
                       host: 'localhost',
@@ -186,7 +196,7 @@ module.exports = function (grunt) {
 
                 phantomjs.on('onResourceReceived', function(request){
 
-                    if(/\/capture$/.test(request.url) && request.status == 404){
+                    if(/\/capture$/.test(request.url) && request.status === 404){
                         itDidntWork('server did not respond');
                     }
                     if(/\/heartbeat$/.test(request.url)){
@@ -279,7 +289,7 @@ module.exports = function (grunt) {
                 }
                 else {
                     killChildProcesses().then(function() {
-                        runJSTestDriver(configFileLocation, options)
+                        runJSTestDriver(configFileLocation, options);
                     });
                 }
             }
@@ -303,10 +313,4 @@ module.exports = function (grunt) {
             runJSTestDriver(filename, options);
         }.bind(this));
     });
-
-    function silentGrunt(grunt) {
-        var clonedGrunt = _.clone(grunt);
-        clonedGrunt.warn = function() {};
-        return clonedGrunt;
-    }
 };

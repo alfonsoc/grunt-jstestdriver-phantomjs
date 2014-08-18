@@ -12,22 +12,37 @@ module.exports = function (grunt) {
     grunt.initConfig({
         jshint: {
             all: [
-                'tasks/*.js'
+                'tasks/*.js',
+                'Gruntfile.js'
             ],
             options: {
+                reporter: require('jshint-stylish'),
                 jshintrc: '.jshintrc'
             }
         },
         jstdPhantom: {
             options: {
+                useLatest: true
             },
             files: ["task-test/jsTestDriver_jstd.conf"]
+        },
+        watch: {
+            scripts: {
+                files: ['**/*.js'],
+                tasks: ['jshint']
+            },
+            plugin: {
+                files: ['tasks/*.js', 'task-test/*.js'],
+                tasks: ['jstdPhantom']
+            }
         }
     });
 
     grunt.loadTasks('tasks');
 
     grunt.loadNpmTasks('grunt-contrib-jshint');
+    
+    grunt.loadNpmTasks('grunt-contrib-watch');
 
-    grunt.registerTask('default', ['jstdPhantom', 'jshint']);
+    grunt.registerTask('default', ['jshint', 'jstdPhantom']);
 };

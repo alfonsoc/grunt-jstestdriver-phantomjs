@@ -21,10 +21,22 @@ A basic config of jsTestDriver is as follows.
 
 ```javascript
 jstdPhantom: {  
+	options: {
+	},
     files: [
 		"src-test/unit/jsTestDriver.conf", 
 		"src-test/integration/jsTestDriver.conf"
 	]
+}
+```
+
+Currently we run JSTestDriver 1.3.3.d by default since it has proven more stable for certain scenarios but it you want to go with v.1.3.5, there's a flag for that.
+```javascript
+jstdPhantom: {  
+	options: {
+		useLatest : true
+	},
+	files: [...]
 }
 ```
 
@@ -57,6 +69,7 @@ To be updated...
 
 
 ## Release History
+* 2014/18/08 - v.0.0.7 - Add option for using latest jstd. Upgraded grunt-lib-phantomjs to 0.6.0.
 * 2013/18/09 - v.0.0.6 - Added filtering of output when killing child processes and started using _
 * 2013/16/09 - v.0.0.5 - Adding timeout option Adding retires option. Using http module to decide when the server has started. Waiting for child processes to die.
 * 2013/13/09 - v.0.0.4 - Make sure child proceses are dead before task is completed.
